@@ -1,19 +1,14 @@
 import torch
 from torch.utils.data.sampler import Sampler
-import linklink as link
 import math
 import numpy as np
 
 
 class DistributedSampler(Sampler):
     def __init__(self, dataset, world_size=None, rank=None, round_up=True):
-        if world_size is None:
-            world_size = link.get_world_size()
-        if rank is None:
-            rank = link.get_rank()
         self.dataset = dataset
-        self.world_size = world_size
-        self.rank = rank
+        self.world_size = 1
+        self.rank = 0
         self.round_up = round_up
         self.epoch = 0
 
@@ -24,7 +19,7 @@ class DistributedSampler(Sampler):
         else:
             self.total_size = len(self.dataset)
 
-        if self.rank < self.world_size-1:
+        if self.rank < self.world_size - 1:
             self.length = self.num_samples
         else:
             self.length = self.total_size - (self.world_size-1)*self.num_samples
@@ -55,9 +50,9 @@ class DistributedSampler(Sampler):
 class DistributedGivenIterationSampler(Sampler):
     def __init__(self, dataset, total_iter, batch_size, world_size=None, rank=None, last_iter=0):
         if world_size is None:
-            world_size = link.get_world_size()
+            world_size = 1
         if rank is None:
-            rank = link.get_rank()
+            rank = 0
         assert rank < world_size
         self.dataset = dataset
         self.total_iter = total_iter
@@ -106,9 +101,9 @@ class DistributedGivenIterationSampler(Sampler):
 class DistributedEpochSampler(Sampler):
     def __init__(self, dataset, total_iter, batch_size, world_size=None, rank=None, last_iter=0):
         if world_size is None:
-            world_size = link.get_world_size()
+            world_size = 1
         if rank is None:
-            rank = link.get_rank()
+            rank = 0
         assert rank < world_size
         self.dataset = dataset
         self.total_iter = total_iter
@@ -175,7 +170,7 @@ def build_sampler(cfg_sampler, cfg_dataset):
     dataset = cfg_dataset['dataset']
     # check step type: iteration or epoch ?
     if not getattr(cfg_dataset, 'max_iter', False):
-        world_size = link.get_world_size()
+        world_size = 1
         iter_per_epoch = (len(dataset) - 1) // (batch_size * world_size) + 1
         total_iter = cfg_dataset['max_epoch'] * iter_per_epoch
     else:

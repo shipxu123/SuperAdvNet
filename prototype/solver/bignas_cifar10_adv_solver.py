@@ -25,7 +25,6 @@ from prototype.utils.misc import makedir, AverageMeter, accuracy, load_state_mod
     mix_criterion, cutmix_data
 from prototype.utils.misc import accuracy, AverageMeter, mixup_data, cutmix_data, mix_criterion
 
-import linklink as link
 try:
     from prototype.spring.nas.bignas.controller import ClsController
 except ModuleNotFoundError:
@@ -93,9 +92,9 @@ class PGD():
         for t in range(self.steps):
             logits_adv = model(x_adv)
             if self.targeted:
-                loss_adv = - self.loss_fn(logits_adv, targets) / link.get_world_size()
+                loss_adv = - self.loss_fn(logits_adv, targets)
             else: # untargeted attack
-                loss_adv = self.loss_fn(logits_adv, labels)  / link.get_world_size()
+                loss_adv = self.loss_fn(logits_adv, labels)
             grad_adv = torch.autograd.grad(loss_adv, x_adv, only_inputs=True)[0]
             x_adv.data.add_(self.alpha * torch.sign(grad_adv.data)) # gradient assend by Sign-SGD
             x_adv = linf_clamp(x_adv, _min=x-self.eps, _max=x+self.eps) # clamp to linf ball centered by x
@@ -146,7 +145,7 @@ def build_cifar_train_dataloader(config):
     transform_train = transforms.Compose(aug)
     train_dataset = CIFAR10(root='/mnt/lustre/share/prototype_cifar/cifar10/',
                             train=True, download=False, transform=transform_train)
-    train_sampler = DistributedSampler(train_dataset, round_up=False)
+    train_sampler = Sampler(train_dataset, round_up=False)
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.batch_size,
@@ -180,15 +179,9 @@ class BigNASCIFARAdvSolver(BaseSolver):
         super().setup_env()
 
         self.seed_base: int = int(self.config.seed_base)
-        # set seed and test the linklink
-        self.seed: int = self.seed_base + self.dist.rank
+        # set seed
+        self.seed: int = self.seed_base
         set_seed(seed=self.seed)
-        seeds = torch.zeros(self.dist.world_size).int()
-        seeds[self.dist.rank] = self.seed
-        link.allreduce(seeds)
-        link.broadcast(seeds, 0)
-        self.logger.info(f'=> seeds synced, seeds={seeds.cpu().numpy().tolist()}')
-        set_seed(self.seed)
 
     def build_lr_scheduler(self):
         self.prototype_info.lr_scheduler = self.config.lr_scheduler.type
@@ -234,8 +227,7 @@ class BigNASCIFARAdvSolver(BaseSolver):
                                         download=False)
         # check step type: iteration or epoch ?
         if not getattr(cfg_dataset, 'max_iter', False):
-            world_size = link.get_world_size()
-            iter_per_epoch = (len(dataset) - 1) // (batch_size * world_size) + 1
+            iter_per_epoch = (len(dataset) - 1) // (batch_size) + 1
             total_iter = cfg_dataset['max_epoch'] * iter_per_epoch
         else:
             total_iter = cfg_dataset['max_iter']
@@ -476,23 +468,21 @@ class BigNASCIFARAdvSolver(BaseSolver):
                 prec1, prec5 = metrics['top1'], metrics['top5']
 
                 # testing logger
-                if self.dist.rank == 0:
-                    self.tb_logger.add_scalar('loss_val', loss_val, curr_step)
-                    self.tb_logger.add_scalar('acc1_val', prec1, curr_step)
-                    self.tb_logger.add_scalar('acc5_val', prec5, curr_step)
+                self.tb_logger.add_scalar('loss_val', loss_val, curr_step)
+                self.tb_logger.add_scalar('acc1_val', prec1, curr_step)
+                self.tb_logger.add_scalar('acc5_val', prec5, curr_step)
 
                 # save ckpt
-                if self.dist.rank == 0:
-                    if self.config.saver.save_many:
-                        ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
-                    else:
-                        ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'
-                    self.state['model'] = self.model.state_dict()
-                    self.state['optimizer'] = self.optimizer.state_dict()
-                    self.state['last_iter'] = curr_step
-                    if self.ema is not None:
-                        self.state['ema'] = self.ema.state_dict()
-                    torch.save(self.state, ckpt_name)
+                if self.config.saver.save_many:
+                    ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
+                else:
+                    ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'
+                self.state['model'] = self.model.state_dict()
+                self.state['optimizer'] = self.optimizer.state_dict()
+                self.state['last_iter'] = curr_step
+                if self.ema is not None:
+                    self.state['ema'] = self.ema.state_dict()
+                torch.save(self.state, ckpt_name)
 
             end = time.time()
  
@@ -541,21 +531,13 @@ class BigNASCIFARAdvSolver(BaseSolver):
                 self.logger.info(f'Test: [{i+1}/{val_iter}]\tTime {batch_time.val:.3f} ({batch_time.avg:.3f})')
 
         # gather final results
-        total_num = torch.Tensor([losses.count])
-        loss_sum = torch.Tensor([losses.avg*losses.count])
-        top1_sum = torch.Tensor([top1.avg*top1.count])
-        top5_sum = torch.Tensor([top5.avg*top5.count])
-        loss_adv_sum = torch.Tensor([losses_adv.avg*losses_adv.count])
-        top1_adv_sum = torch.Tensor([top1_adv.avg*top1_adv.count])
-        top5_adv_sum = torch.Tensor([top5_adv.avg*top5_adv.count])
-
-        link.allreduce(total_num)
-        link.allreduce(loss_sum)
-        link.allreduce(top1_sum)
-        link.allreduce(top5_sum) 
-        link.allreduce(loss_adv_sum)
-        link.allreduce(top1_adv_sum)
-        link.allreduce(top5_adv_sum)
+        total_num = torch.Tensor(losses.count)
+        loss_sum = torch.Tensor(losses.avg*losses.count)
+        top1_sum = torch.Tensor(top1.avg*top1.count)
+        top5_sum = torch.Tensor(top5.avg*top5.count)
+        loss_adv_sum = torch.Tensor(losses_adv.avg*losses_adv.count)
+        top1_adv_sum = torch.Tensor(top1_adv.avg*top1_adv.count)
+        top5_adv_sum = torch.Tensor(top5_adv.avg*top5_adv.count)
 
         final_loss = loss_sum.item()/total_num.item()
         final_top1 = top1_sum.item()/total_num.item()
@@ -628,21 +610,13 @@ class BigNASCIFARAdvSolver(BaseSolver):
                 self.logger.info(f'Test: [{i+1}/{val_iter}]\tTime {batch_time.val:.3f} ({batch_time.avg:.3f})')
 
         # gather final results
-        total_num = torch.Tensor([losses.count])
-        loss_sum = torch.Tensor([losses.avg*losses.count])
-        top1_sum = torch.Tensor([top1.avg*top1.count])
-        top5_sum = torch.Tensor([top5.avg*top5.count])
-        loss_adv_sum = torch.Tensor([losses_adv.avg*losses_adv.count])
-        top1_adv_sum = torch.Tensor([top1_adv.avg*top1_adv.count])
-        top5_adv_sum = torch.Tensor([top5_adv.avg*top5_adv.count])
-
-        link.allreduce(total_num)
-        link.allreduce(loss_sum)
-        link.allreduce(top1_sum)
-        link.allreduce(top5_sum) 
-        link.allreduce(loss_adv_sum)
-        link.allreduce(top1_adv_sum)
-        link.allreduce(top5_adv_sum)
+        total_num = torch.Tensor(losses.count)
+        loss_sum = torch.Tensor(losses.avg*losses.count)
+        top1_sum = torch.Tensor(top1.avg*top1.count)
+        top5_sum = torch.Tensor(top5.avg*top5.count)
+        loss_adv_sum = torch.Tensor(losses_adv.avg*losses_adv.count)
+        top1_adv_sum = torch.Tensor(top1_adv.avg*top1_adv.count)
+        top5_adv_sum = torch.Tensor(top5_adv.avg*top5_adv.count)
 
         final_loss = loss_sum.item()/total_num.item()
         final_top1 = top1_sum.item()/total_num.item()

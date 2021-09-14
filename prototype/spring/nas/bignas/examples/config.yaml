@@ -1,0 +1,87 @@
+model:
+    type: prototype.spring_big_resnet_basic
+    kwargs:
+        use_maxpool: True
+        out_channel:
+            space:
+                min: [32, 32, 64, 128, 256]
+                max: [64, 96, 192, 384, 768]
+                stride: [16, 16, 32, 32, 64]
+            sample_strategy: stage_wise
+        kernel_size:
+            space:
+                min: [3, 3, 3, 3, 3]
+                max: [7, 3, 3, 3, 3]
+                stride: 2
+            sample_strategy: stage_wise
+        expand_ratio:
+            space:
+                min: [1, 1, 1, 1, 1]
+                max: [1, 1, 1, 1, 1]
+                stride: [1, 1, 1, 1, 1]
+            sample_strategy: stage_wise
+        depth:
+            space:
+                min: [1, 1, 1, 1, 1]
+                max: [1, 3, 3, 3, 3]
+                stride: 1
+            sample_strategy: stage_wise_depth
+
+bignas:
+    train:
+        sample_subnet_num: 4
+        sample_strategy: ['max', 'random', 'random', 'min']
+        valid_before_train: False
+    data:
+        share_interpolation: False
+        interpolation_type: bicubic
+        image_size_list: [128, 224]
+        stride: 4
+        test_image_size_list: [128, 224]
+    distiller:
+        weight: 1.0
+        type: inplace_kd
+        s_name: ['module.classifier']
+        t_name: ['module.classifier']
+        kwargs:
+            T: 1
+    subnet:
+        flops_range: [1300, 2500]
+        subnet_count: 100
+        image_size: 224
+        subnet_settings:
+            depth:  [1, 2, 2, 2, 2]
+            out_channel:  [64, 64, 128, 256, 512]
+            kernel_size: [7, 3, 3, 3, 3]
+            expand_ratio: [1, 1, 1, 1, 1]
+    latency:
+        hardware1:
+            hardware_name: T4
+            backend_name: cuda11.0-trt7.1
+            data_type: int8
+            batch_size: 1
+            test_latency: True
+        hardware2:
+            hardware_name: P4
+            backend_name: cuda11.0-trt7.1
+            data_type: int8
+            batch_size: 1
+            test_latency: True
+        hardware3:
+            hardware_name: 3559A
+            backend_name: hisvp-nnie11
+            data_type: int8
+            batch_size: 1
+            test_latency: True
+        hardware4:
+            hardware_name: 3519A
+            backend_name: hisvp-nnie12
+            data_type: int8
+            batch_size: 1
+            test_latency: False
+        hardware5:
+            hardware_name: cpu
+            backend_name: ppl2
+            data_type: fp32
+            batch_size: 1
+            test_latency: True
