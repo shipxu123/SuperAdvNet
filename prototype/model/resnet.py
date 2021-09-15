@@ -1,6 +1,5 @@
 import torch.nn as nn
 import math
-from linklink.nn import SyncBatchNorm2d
 from prototype.utils.misc import get_logger, get_bn
 
 BN = None
@@ -160,14 +159,6 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(inplanes * 8 * block.expansion, num_classes)
-
-        # for m in self.modules():
-            # if isinstance(m, nn.Conv2d):
-            #     nn.init.kaiming_normal_(
-            #         m.weight, mode='fan_out', nonlinearity='relu')
-            # elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm, SyncBatchNorm2d)):
-            #     nn.init.constant_(m.weight, 1)
-            #     nn.init.constant_(m.bias, 0)
 
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.

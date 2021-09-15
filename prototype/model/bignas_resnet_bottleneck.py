@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from linklink.nn import SyncBatchNorm2d
 from prototype.utils.misc import get_bn
 
 
@@ -331,7 +330,7 @@ class BigNAS_ResNet_Bottleneck(nn.Module):
                 m.weight.data.normal_(0, math.sqrt(2. / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
-            elif isinstance(m, nn.BatchNorm2d) or isinstance(m, SyncBatchNorm2d):
+            elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
