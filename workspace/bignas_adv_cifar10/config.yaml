@@ -41,8 +41,8 @@ bignas:
     distiller:
         weight: 1.0
         type: inplace_kd
-        s_name: ['module.classifier']
-        t_name: ['module.classifier']
+        s_name: ['classifier']
+        t_name: ['classifier']
         kwargs:
             T: 1
 
@@ -87,7 +87,7 @@ lms:                      # large model support: utilize cpu to save gpu memory
 data:
     task: cifar10
     batch_size: 512
-    num_workers: 4
+    num_workers: 1
     autoaugment: True
     cutout: True
     input_size: 32
@@ -97,5 +97,5 @@ saver:                                # saving or loading details
     val_epoch_freq: 1
     val_freq: 5000                    # frequence of evaluating during training
     save_many: False                   # whether to save checkpoints after every evaluation
-    pretrain:
-       path: ./checkpoints/ckpt.pth.tar
+    # pretrain:
+    #    path: ./checkpoints/ckpt.pth.tar
