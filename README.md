@@ -37,9 +37,9 @@ cd bignas_adv_cifar10         # or (bignas_adv_cifar100)
 bash train.sh                 # train the superAdvNet, save the weight of superAdvNet
 cd Adv_Evaluate               # or (Adv_Sample_Accuracy)
 bash run.sh                   # get the adv result generated from the same model
-cd ../Max_Adv_Evaluate           # or (Max_Adv__Sample_Accuracy)
+cd ../Max_Adv_Evaluate        # or (Max_Adv__Sample_Accuracy)
 bash run.sh                   # get the adv result generated from uncompressed model
-cd ../Min_Adv_Evaluate           # or (Min_Adv_Sample_Accuracy)
+cd ../Min_Adv_Evaluate        # or (Min_Adv_Sample_Accuracy)
 bash run.sh                   # get the adv result generated from fully compressed model
 ```
 
