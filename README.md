@@ -3,6 +3,7 @@ Implementation for paper 《Interpreting the Correlation between Adversarial Rob
 
 ## Intoruction
 The originization of this code is shown as follow:
+```
 |-- README.md # short introduction of codes
 |-- figures # the original figure in the Paper
 |   |-- cifar10
@@ -22,6 +23,7 @@ The originization of this code is shown as follow:
 `-- workspace
     |-- bignas_adv_cifar10
     `-- bignas_adv_cifar100
+```
 
 ## Usage
 1. First, install the required enviromental setup.
