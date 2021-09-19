@@ -96,7 +96,6 @@ def get_logger(name, level=logging.INFO):
         return logger
 
     _logger_names.append(name)
-    logger.addFilter(RankFilter())
 
     return logger
 
