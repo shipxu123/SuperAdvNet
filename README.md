@@ -1,5 +1,5 @@
 # SuperAdvNet
-Implementation for paper 《Interpreting the Correlation between Adversarial Robustness  and  Compression Variance of Deep Learning Models in IoT Domain》
+Implementation for paper 《Interpreting Critical Phenomenon of Adversarial Robustness in Deep-Learning-based Automated Driving Domain》
 
 ## Intoruction
 The originization of this code is shown as follow:
